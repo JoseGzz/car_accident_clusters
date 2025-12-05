@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puntos Críticos de Accidentes en Nuevo Leon</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <!-- noUiSlider CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" />
+    <!-- noUiSlider JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+
+    <style>
+        body { background-color: #f3f4f6; }
+        
+        /* Map container now takes full height of its parent */
+        #map { height: 100%; width: 100%; border-radius: 0.5rem; z-index: 1; }
+        
+        /* Custom styles for noUiSlider to match Tailwind Indigo theme */
+        #dateSlider .noUi-connect {
+            background: #4f46e5; /* Indigo-600 */
+        }
+        
+        #dateSlider.noUi-horizontal {
+            height: 6px; /* Thinner bar */
+            border: none;
+            background: #e5e7eb; /* gray-200 */
+            border-radius: 3px;
+        }
+        
+        #dateSlider .noUi-handle {
+            /* FORCE Small Circle Dimensions */
+            height: 14px !important;
+            width: 14px !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            
+            /* Center the knob relative to the 6px bar */
+            top: -4px !important;   
+            right: -7px !important; 
+            
+            /* Visuals */
+            border-radius: 50% !important; /* Perfectly round */
+            background: #ffffff;
+            border: 2px solid #4f46e5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        
+        #dateSlider .noUi-handle::before, 
+        #dateSlider .noUi-handle::after {
+            display: none !important; 
+        }
+        
+        #dateSlider .noUi-handle:hover {
+            transform: scale(1.15);
+            transition: transform 0.1s;
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body class="p-6 flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Accidentes de Tránsito en Nuevo Leon</h1>
+        <p class="text-gray-600">Identificación de intersecciones con alto volumen de accidentes de tránsico</p>
+    </div>
+
+    <!-- Controls Card -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6 max-w-[1400px] mx-auto w-full">
+        
+        <!-- Top Row: Inputs & Button -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end mb-8">
+            
+            <!-- Date Range Slider (Span 5) -->
+            <div class="lg:col-span-5">
+                <label class="block text-gray-700 font-medium mb-4">Rango de Meses (2025)</label>
+                <div id="dateSlider" class="mx-2 mb-2"></div>
+                <div class="flex justify-between mt-3 text-indigo-600 font-bold text-sm">
+                    <span id="dateStartDisplay">Oct 2025</span>
+                    <span id="dateEndDisplay">Dic 2025</span>
+                </div>
+            </div>
+
+            <!-- Epsilon Input (Span 3) -->
+            <div class="lg:col-span-3">
+                <label class="block text-gray-700 font-medium">Epsilon (metros)</label>
+                <p class="text-xs text-gray-500 mb-2">Distancia máxima entre puntos.</p>
+                <!-- UPDATED DEFAULT VALUE TO 10 -->
+                <input type="number" id="epsilon" value="10" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <!-- Min Points Input (Span 2) -->
+            <div class="lg:col-span-2">
+                <label class="block text-gray-700 font-medium">Puntos Mínimos</label>
+                <p class="text-xs text-gray-500 mb-2">Densidad mínima.</p>
+                <input type="number" id="minPoints" value="10" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <!-- Run Button (Span 2) -->
+            <div class="lg:col-span-2">
+                <button onclick="runAnalysis()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fas fa-search"></i> Analizar
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Toggles & Stats -->
+        <div class="flex flex-col md:flex-row justify-between items-center pt-2">
+            
+            <!-- Toggles (Left) -->
+            <div class="flex gap-8 mb-4 md:mb-0 w-full md:w-auto">
+                <label class="flex items-center space-x-2 cursor-pointer group">
+                    <div class="relative flex items-center">
+                        <input type="checkbox" id="showClusters" checked class="peer h-5 w-5 cursor-pointer appearance-none rounded border border-gray-400 checked:bg-gray-600 checked:border-gray-600 transition-all">
+                        <i class="fas fa-check absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 text-xs pointer-events-none"></i>
+                    </div>
+                    <span class="text-gray-700 group-hover:text-gray-900">Mostrar Áreas de Agrupamiento</span>
+                </label>
+                
+                <label class="flex items-center space-x-2 cursor-pointer group">
+                     <div class="relative flex items-center">
+                        <input type="checkbox" id="showPoints" checked class="peer h-5 w-5 cursor-pointer appearance-none rounded border border-gray-400 checked:bg-gray-600 checked:border-gray-600 transition-all">
+                        <i class="fas fa-check absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 text-xs pointer-events-none"></i>
+                    </div>
+                    <span class="text-gray-700 group-hover:text-gray-900">Mostrar Accidentes Individuales</span>
+                </label>
+            </div>
+
+            <!-- Stats (Right) -->
+            <div class="flex flex-wrap justify-end gap-6 text-sm w-full md:w-auto">
+                <div class="text-gray-600">Total de Accidentes: <span id="statTotal" class="font-medium text-gray-800 ml-1">0</span></div>
+                <div class="text-gray-600">Grupos Encontrados: <span id="statClusters" class="font-medium text-gray-800 ml-1">0</span></div>
+                <div class="text-gray-600">Puntos de Ruido: <span id="statNoise" class="font-medium text-gray-800 ml-1">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area: Map + Sidebar -->
+    <!-- Increased height from 600px to 800px to accommodate full sidebar content -->
+    <div class="max-w-[1400px] mx-auto w-full mb-6 flex flex-col lg:flex-row gap-4 h-[800px]">
+        
+        <!-- Map Container (Flex Grow) -->
+        <div class="flex-1 bg-white p-2 rounded-lg shadow-md h-full relative z-0">
+            <div id="map"></div>
+        </div>
+
+        <!-- Sidebar: Top 5 Clusters (Fixed Width on Desktop) -->
+        <div id="topClustersContainer" class="w-full lg:w-72 bg-white p-4 rounded-lg shadow-md h-full overflow-y-auto hidden flex flex-col transition-all duration-300">
+            <h3 class="text-gray-700 font-bold mb-6 text-center text-sm uppercase tracking-wider border-b pb-2">Top 5 Zonas de Riesgo</h3>
+            <!-- Bubbles Stacked Vertically -->
+            <div id="clusterVisuals" class="flex flex-col items-center gap-8 flex-1">
+                <!-- JS injects dynamic cluster bubbles here -->
+            </div>
+            <div class="text-xs text-center text-gray-400 mt-4 italic">
+                Click en un círculo para ver en el mapa
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="max-w-[1400px] mx-auto text-center text-gray-500 text-sm pb-6">
+        <p class="mb-2">Esta aplicación visualiza zonas de alta densidad de accidentes para mejorar la seguridad vial.</p>
+        <p>
+            Fuente de datos: 
+            <a href="https://ocisevi.org.mx/ocisevi-nl/" target="_blank" class="text-indigo-600 hover:underline">
+                https://ocisevi.org.mx/ocisevi-nl/
+            </a>
+        </p>
+    </footer>
+
+    <script>
+        // Initialize Map centered on Monterrey
+        const map = L.map('map').setView([25.6866, -100.3161], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Global Color palette for clusters (Moved to global scope so both functions can use it)
+        const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
+
+        // Layer Groups
+        const clusterLayer = L.layerGroup().addTo(map);
+        const pointsLayer = L.layerGroup().addTo(map);
+
+        // --- Dual Handle Date Slider Setup ---
+        const slider = document.getElementById('dateSlider');
+        const dateStartDisplay = document.getElementById('dateStartDisplay');
+        const dateEndDisplay = document.getElementById('dateEndDisplay');
+
+        // Month names for display
+        const monthNames = [
+            "Ene", "Feb", "Mar", "Abr", "May", "Jun", 
+            "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+        ];
+
+        // Initialize noUiSlider with 0-11 range (Months)
+        noUiSlider.create(slider, {
+            // UPDATED DEFAULT: Oct (9) to Dec (11)
+            start: [9, 11], 
+            connect: true,
+            range: {
+                'min': 0,
+                'max': 11
+            },
+            step: 1, // Step by 1 month
+            tooltips: false, // We use custom labels below
+        });
+
+        // Update labels when slider moves
+        slider.noUiSlider.on('update', function (values, handle) {
+            const index = Math.round(values[handle]);
+            const label = `${monthNames[index]} 2025`;
+            
+            if (handle === 0) {
+                dateStartDisplay.innerText = label;
+            } else {
+                dateEndDisplay.innerText = label;
+            }
+        });
+
+        // Toggle Layers
+        document.getElementById('showClusters').addEventListener('change', e => {
+            if(e.target.checked) map.addLayer(clusterLayer);
+            else map.removeLayer(clusterLayer);
+        });
+        document.getElementById('showPoints').addEventListener('change', e => {
+            if(e.target.checked) map.addLayer(pointsLayer);
+            else map.removeLayer(pointsLayer);
+        });
+
+        async function runAnalysis() {
+            const epsilon = document.getElementById('epsilon').value;
+            const minPoints = document.getElementById('minPoints').value;
+            
+            // Get values from slider (0-11)
+            const sliderValues = slider.noUiSlider.get();
+            const startMonthIdx = Math.round(sliderValues[0]);
+            const endMonthIdx = Math.round(sliderValues[1]);
+
+            // Calculate Start Date: 1st day of the start month
+            const startDateObj = new Date(2025, startMonthIdx, 1);
+            
+            // Calculate End Date: Last day of the end month
+            const endDateObj = new Date(2025, endMonthIdx + 1, 0);
+
+            // Format to YYYY-MM-DD for backend
+            const startDate = startDateObj.getFullYear() + '-' + 
+                              String(startDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(startDateObj.getDate()).padStart(2, '0');
+            
+            const endDate = endDateObj.getFullYear() + '-' + 
+                            String(endDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                            String(endDateObj.getDate()).padStart(2, '0');
+
+            // Show loading state
+            const btn = document.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        epsilon, 
+                        minPoints, 
+                        startDate, 
+                        endDate 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                updateMap(data.points, epsilon);
+                updateStats(data.stats);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al obtener el análisis.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function updateStats(stats) {
+            document.getElementById('statTotal').innerText = stats.total;
+            document.getElementById('statClusters').innerText = stats.n_clusters;
+            document.getElementById('statNoise').innerText = stats.noise;
+        }
+
+        function updateTopClusters(clustersObj) {
+            const container = document.getElementById('topClustersContainer');
+            const visualsContainer = document.getElementById('clusterVisuals');
+            
+            // 1. Convert to sorted array
+            const sortedClusters = Object.entries(clustersObj)
+                .map(([id, points]) => ({ id: parseInt(id), count: points.length }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5); // Take top 5
+
+            // Toggle visibility (using flex to maintain layout)
+            if (sortedClusters.length === 0) {
+                container.classList.add('hidden');
+                container.classList.remove('flex');
+                return;
+            }
+            container.classList.remove('hidden');
+            container.classList.add('flex');
+            
+            visualsContainer.innerHTML = '';
+
+            // 2. Settings for visual sizes
+            const maxPx = 90;  // Slightly smaller max size for sidebar
+            const minPx = 40;  // Minimum diameter
+            const maxCount = sortedClusters[0].count; // Reference count for scaling
+
+            // 3. Render Bubbles
+            sortedClusters.forEach(c => {
+                // Determine color
+                const color = colors[c.id % colors.length];
+
+                // Calculate visual size (radius proportional to count)
+                let diameter = (c.count / maxCount) * maxPx;
+                if (diameter < minPx) diameter = minPx;
+
+                // --- NEW: Calculate Center for Zooming ---
+                const clusterPoints = clustersObj[c.id];
+                const avgLat = clusterPoints.reduce((sum, p) => sum + p.lat, 0) / clusterPoints.length;
+                const avgLng = clusterPoints.reduce((sum, p) => sum + p.lng, 0) / clusterPoints.length;
+
+                // Create Wrapper
+                const wrapper = document.createElement('div');
+                wrapper.className = "flex flex-col items-center gap-1 group cursor-pointer hover:-translate-y-1 transition-transform duration-300 w-full"; 
+
+                // Create Circle
+                const circle = document.createElement('div');
+                circle.style.width = `${diameter}px`;
+                circle.style.height = `${diameter}px`;
+                circle.style.backgroundColor = color;
+                circle.style.opacity = '0.3'; // Transparent fill
+                circle.style.borderRadius = '50%';
+                circle.style.border = `2px solid ${color}`; // Solid border
+                circle.className = "transition-transform duration-300 group-hover:scale-105 shadow-sm";
+
+                // Create Label
+                const label = document.createElement('div');
+                label.className = "text-center z-10 -mt-2"; // Tighter margin for sidebar
+                label.innerHTML = `
+                    <div class="text-lg font-bold text-gray-800 leading-none">${c.count}</div>
+                    <div class="text-[10px] text-gray-500 font-medium uppercase">Grupo #${c.id}</div>
+                `;
+
+                // Add Click Event for Zooming
+                wrapper.onclick = () => {
+                    map.setView([avgLat, avgLng], 18); // Zoom deep into the cluster
+                };
+
+                // Append
+                wrapper.appendChild(circle);
+                wrapper.appendChild(label);
+                visualsContainer.appendChild(wrapper);
+            });
+        }
+
+        function updateMap(points, epsilon) {
+            clusterLayer.clearLayers();
+            pointsLayer.clearLayers();
+
+            const clusters = {};
+
+            // 1. Group points first to determine cluster sizes
+            points.forEach(p => {
+                if (p.cluster !== -1) {
+                    if (!clusters[p.cluster]) clusters[p.cluster] = [];
+                    clusters[p.cluster].push(p);
+                }
+            });
+
+            // 2. Update Top 5 Visualization (Sidebar)
+            updateTopClusters(clusters);
+
+            // 3. Create markers (now we know the size)
+            points.forEach(p => {
+                let color = '#9ca3af'; // Default noise color
+                let radius = 5;
+                let weight = 0.5;
+                let clusterText = 'Punto de Ruido';
+
+                if (p.cluster !== -1) {
+                    // It's a cluster point
+                    color = colors[p.cluster % colors.length];
+                    radius = 6; // Slightly larger for emphasis
+                    weight = 1;
+                    
+                    // Access the size from our pre-grouped object
+                    const clusterSize = clusters[p.cluster].length;
+                    clusterText = `<b>Grupo #${p.cluster}</b><br>Contiene ${clusterSize} accidentes`;
+                }
+
+                // ALWAYS add the point to pointsLayer (so it's controlled by the "Points" checkbox)
+                L.circleMarker([p.lat, p.lng], {
+                    radius: radius,
+                    fillColor: color,
+                    color: p.cluster === -1 ? '#4b5563' : '#fff',
+                    weight: weight,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).bindPopup(clusterText).addTo(pointsLayer);
+            });
+
+            // 4. Draw one central disk per cluster (Areas)
+            for (const clusterId in clusters) {
+                const clusterPoints = clusters[clusterId];
+                const color = colors[clusterId % colors.length];
+                
+                // Calculate cluster center (average lat/lng)
+                const avgLat = clusterPoints.reduce((sum, p) => sum + p.lat, 0) / clusterPoints.length;
+                const avgLng = clusterPoints.reduce((sum, p) => sum + p.lng, 0) / clusterPoints.length;
+
+                // Add area circle to clusterLayer (controlled by "Clusters" checkbox)
+                L.circle([avgLat, avgLng], {
+                    radius: parseFloat(epsilon) * 5, // Visual radius multiplier
+                    fillColor: color,
+                    color: color,      
+                    weight: 2,         
+                    fillOpacity: 0.2, // Slightly more transparent so points show through
+                    interactive: false 
+                }).addTo(clusterLayer);
+            }
+        }
+
+        // Run initially on load (wait for slider to init)
+        setTimeout(runAnalysis, 100);
+    </script>
+</body>
+</html>
