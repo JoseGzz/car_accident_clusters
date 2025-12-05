@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puntos Críticos de Accidentes en Nuevo Leon</title>
+    <title>Puntos Críticos de Accidentes en Monterrey</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -73,8 +73,8 @@
 
     <!-- Header -->
     <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">Accidentes de Tránsito en Nuevo Leon</h1>
-        <p class="text-gray-600">Identificación de intersecciones con alto volumen de accidentes de tránsico</p>
+        <h1 class="text-3xl font-bold text-gray-800">Accidentes de Transito en Monterrey</h1>
+        <p class="text-gray-600">Identificacion de intersecciones con alto volumen de accidentes de transito</p>
     </div>
 
     <!-- Controls Card -->
@@ -85,7 +85,7 @@
             
             <!-- Date Range Slider (Span 5) -->
             <div class="lg:col-span-5">
-                <label class="block text-gray-700 font-medium mb-4">Rango de Meses (2025)</label>
+                <label class="block text-gray-700 font-medium mb-4">Rango de Meses</label>
                 <div id="dateSlider" class="mx-2 mb-2"></div>
                 <div class="flex justify-between mt-3 text-indigo-600 font-bold text-sm">
                     <span id="dateStartDisplay">Oct 2025</span>
@@ -95,8 +95,8 @@
 
             <!-- Epsilon Input (Span 3) -->
             <div class="lg:col-span-3">
-                <label class="block text-gray-700 font-medium">Epsilon (metros)</label>
-                <p class="text-xs text-gray-500 mb-2">Distancia máxima entre puntos.</p>
+                <label class="block text-gray-700 font-medium">Distancia máxima entre puntos</label>
+                <p class="text-xs text-gray-500 mb-2">Valores menores generan grupos mas compactos.</p>
                 <!-- UPDATED DEFAULT VALUE TO 10 -->
                 <input type="number" id="epsilon" value="10" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
